@@ -1,0 +1,303 @@
+---
+title: "Multivariate"
+author: "José Gabriel Escarramán"
+date: "2024-04-21"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, echo = TRUE)
+options(scipen = 999)
+library(data.table)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+#library(caret)
+library(gmodels)
+library(readxl)
+
+#Survival
+library(survminer)
+library(survivalROC)
+library(ggpubr)
+library(survival)
+
+#Roc curve
+library(cutpointr)
+library(ROCR)
+library(ROCit)
+library(pROC)
+library(timeROC)
+
+# requested 
+library(tidyr)
+library(broom)
+library(lattice)
+library(kableExtra)
+library(Hmisc)
+```
+
+## carico il db e creo la variabile cutoff
+
+
+```{r cars, , results='hide'}
+
+#Cinzia
+#setwd("C:/Users/vincenza.solli2/Alma Mater Studiorum Università di Bologna/MM group - Documenti/CARTELLE_PERSONALI/Escarraman_Jose/tesi/data//")
+#jose
+setwd("C:/Users/jose-/Alma Mater Studiorum Università di Bologna/MM group - Escarraman_Jose/tesi/data//")
+
+
+
+#final_data$ISS3 %>% table()
+final_data <- read_excel("./Darafull_fu.xlsx", sheet = "data", na = "nv")
+names2 <- read_excel("./Darafull_fu.xlsx",sheet="var", na = "nv")
+
+cat<-names2$var[names2$type=="cat"]
+#just for dara
+#cat<- names2$var[names2$type=="cat" & names2$linea=="2"]
+
+
+
+num<-names2$var[names2$type=="num"]
+cat<- names2$var[names2$type=="cat"]
+
+
+
+for (i in c(cat)) {
+  print(i)
+  final_data[[i]]<-as.factor(final_data[[i]])
+}
+
+# convert multiple colums to numeric
+for (i in c(num)) {
+  print(i)
+  final_data[[i]]<-as.numeric(final_data[[i]])
+}
+
+final_data2<-final_data
+
+
+
+#significative variables in the univariate analysis
+
+OSv<-c("bestresp_DaraVd_m_SD"," bestresp_DaraVd_M_VGPR"," bestresp_DaraVd_M_CR"," bestresp_DaraVd","
+     mg_settimanale_Dex_DaraVd","pd_BM_g60"," pd_PCR_g05" )
+
+PFSv<-c("profilassi_antivirale_DaraVd"," bestresp_DaraVd_m_SD"," bestresp_DaraVd_M_VGPR"," bestresp_DaraVd_M_CR","
+        bestresp_DaraVd","mg_settimanale_Dex_DaraVd","	EMD_PD"," amp1q_PD"," pd_BM_g60" )
+
+TTPv<-c("profilassi_antivirale_DaraVd"," bestresp_DaraVd_m_SD"," bestresp_DaraVd_M_VGPR"," bestresp_DaraVd_M_CR","
+        bestresp_DaraVd","	EMD_PD"," amp1q_PD","del17_PD"," pd_BM_g60")
+
+
+
+
+```
+
+
+
+```{r, echo=FALSE, results='hide'}
+
+
+options(scipen = 999)
+
+final_data2$PFS_MONTHS_daravd_linea2 <- as.numeric(final_data2$PFS_MONTHS_daravd_linea2)
+final_data2$EVENT_PFS_DaraVd_linea2 <- as.character(final_data2$EVENT_PFS_DaraVd_linea2) %>%  as.numeric()
+
+
+
+final_data2$OS_MONTHS_PD <- as.numeric(final_data2$OS_MONTHS_PD)
+final_data2$OS_EVENT <- as.character(final_data2$OS_EVENT) %>%  as.numeric()
+
+
+final_data2$TTP_DARAVD_months <- as.numeric(final_data2$TTP_DARAVD_months)
+final_data2$EVENT_TTP_DaraVd_linea2 <- as.character(final_data2$EVENT_TTP_DaraVd_linea2) %>%  as.numeric()
+
+
+#create temp functions for COX univariate
+tmpfun_pfs <- function(x) as.formula(paste("PFS",x,sep="~"))
+tmpfun_ttp <- function(x) as.formula(paste("TTP",x,sep="~"))
+tmpfun_os <- function(x) as.formula(paste("OS",x,sep="~"))
+
+
+
+
+PFS <- Surv(final_data2$PFS_MONTHS_daravd_linea2, final_data2$EVENT_PFS_DaraVd_linea2)
+OS <- Surv(final_data2$OS_MONTHS_PD, final_data2$OS_EVENT)
+TTP <- Surv(final_data2$TTP_DARAVD_months, final_data2$EVENT_TTP_DaraVd_linea2)
+
+
+import<-final_data2
+
+```
+
+
+Per la multivariata avremmo pensato di fare un modello con:
+-Best resp ≥VGPR (che sarebbe bestresp_DaraVd_M_VGPR, giusto?)
+
+-EMD_PD0
+
+-PD Clearance ≥ 40
+
+-PD BM ≤ 60%
+
+Poi, se si può, proverei un modello con stesse variabili + ampl1q alla PD  (5 variabili) e un altro con in più la del17 alla PD (6 variabili).
+
+
+
+
+
+```{r, echo=FALSE}
+
+attach(final_data2)
+
+MODEL_PFS1<-coxph(PFS ~ 
+                        bestresp_DaraVd_M_VGPR+ 
+                        EMD_PD+ 
+                        pd_BM_g60+
+                        pd_CLEARENCE_g50)
+
+summary(MODEL_PFS1)
+
+#proportional hazard
+#cz <- cox.zph(MODEL_PFS1)
+#print(cz)
+#plot(cz)
+
+
+#survdiff(PFS ~ bestresp_DaraVd_M_VGPR, data = final_data2)
+
+
+MODEL_PFS2<-coxph(PFS ~ 
+                        bestresp_DaraVd_M_VGPR+ 
+                        EMD_PD+ 
+                        pd_BM_g60+
+                        pd_CLEARENCE_g50+
+                        amp1q_PD)
+
+summary(MODEL_PFS2)
+
+#proportional hazard
+
+#cz <- cox.zph(MODEL_PFS2)
+#print(cz)
+#plot(cz)
+
+MODEL_PFS3<-coxph(PFS ~ 
+                        bestresp_DaraVd_M_VGPR+ 
+                        EMD_PD+ 
+                        pd_BM_g60+
+                        pd_CLEARENCE_g40+
+                        amp1q_PD+
+                        del17_PD
+                        #pd_PCR_g05
+                    )
+ 
+
+
+summary(MODEL_PFS3)
+
+ 
+ 
+#proportional hazard
+
+#cz <- cox.zph(MODEL_PFS1)
+#print(cz)
+#plot(cz)
+
+
+
+
+#library(sjPlot)
+#plot_model(MODEL_PFS1, type = "emm", terms = c("bestresp_DaraVd_M_VGPR"+ 
+            #            "EMD_PD"+ 
+                        #pd_BM_g60+
+             #           "pd_CLEARENCE_g50" ), show.data = T)
+#plot_model(BEST_MODEL_PFS2, type = "emm", terms = c( "ISS", "cfDNAtumor_fraction_cut_off"), show.data = T)
+
+
+#plot_model(BEST_MODEL_PFS2, type = "emm", terms = c( "ISS"), show.data = T)
+
+
+
+#step(MODEL_PFS1, direction = "backward", trace=1, na.rm=TRUE)
+
+
+```
+
+
+uso il c.index pwìer valutare quale modello predice meglio la surv
+
+```{r, echo=FALSE, results='hide'}
+library(pec)
+
+cindex()
+
+?cindex
+
+library(prodlim)
+A1  <- pec::cindex(list("Cox X1"=MODEL_PFS1),
+		  formula=PFS ~bestresp_DaraVd_M_VGPR+ 
+                        EMD_PD+ 
+                        #pd_BM_g60+
+                        pd_CLEARENCE_g50,
+                        #amp1q_PD+
+                        #del17_PD,
+                        #+pd_PCR_g05,
+		  data=final_data2,
+		  eval.times=seq(2,60,by=6))
+
+A2  <- pec::cindex(list("Cox X2"=MODEL_PFS2),
+		  formula=Surv(PFS ~ bestresp_DaraVd_M_VGPR+ 
+                        EMD_PD+ 
+                        #pd_BM_g60+
+                        pd_CLEARENCE_g50+
+                        amp1q_PD
+                        #del17_PD,
+                        #+pd_PCR_g05,
+                        ,
+		  data=final_data2,
+		  eval.times=seq(2,60,by=6)
+		  )
+
+A3  <- pec::cindex(list("Cox X2"=MODEL_PFS3),
+		  formula=Surv(PFS~bestresp_DaraVd_M_VGPR+ 
+                        EMD_PD+ 
+                        #pd_BM_g60+
+                        pd_CLEARENCE_g50+
+                        amp1q_PD+
+                        del17_PD
+                        #+pd_PCR_g05,
+                        ,
+		  data=final_data2, eval.times=seq(2,60,by=6)
+		  )
+
+A1;A2;A3
+
+plot(A1)
+plot(A2)
+
+Models <- list("Cox.X1"=coxph(Surv(PFS_I_MONTHS,PFS_I_EVENT) ~ 
+              ISS , data = final_data_val, x=TRUE,y=TRUE),
+"Cox.X2"=coxph(Surv(PFS_I_MONTHS, PFS_I_EVENT) ~ 
+     cfDNAtumor_fraction_cut_off , data = final_data_val,  x=TRUE,y=TRUE),
+"Cox.X3"=coxph(Surv(PFS_I_MONTHS, PFS_I_EVENT) ~ 
+     cfDNAtumor_fraction_cut_off + ISS , data = final_data_val,  x=TRUE,y=TRUE))
+
+
+
+MOD2<-pec(object = Models, 
+          formula = PFS ~ 
+     cfDNAtumor_fraction_cut_off + ISS , data = final_data_val, times=seq(5,50,by=5) ,
+     exact = T)
+
+plot(MOD2)
+
+
+#https://cran.r-project.org/web/packages/SurvMetrics/vignettes/SurvMetrics-vignette.html
+```
+

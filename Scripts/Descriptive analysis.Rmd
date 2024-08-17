@@ -1,0 +1,125 @@
+---
+title: "First exploratory Analysis Dara "
+author: ""
+date: "2024-03-24"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+options(warn = -1)
+
+```
+
+```{r, echo=FALSE, results='hide'}
+
+library(tableone)
+
+library(knitr)
+library(kableExtra)
+
+library(readxl)
+library(dplyr)
+
+Darafull_fu <- read_excel("C:/Users/jose-/Alma Mater Studiorum Università di Bologna/MM group - Escarraman_Jose/tesi/data/Darafull_fu.xlsx",sheet="data" ,
+                          na = "nv")
+varinfo <- read_excel("C:/Users/jose-/Alma Mater Studiorum Università di Bologna/MM group - Escarraman_Jose/tesi/data/Darafull_fu.xlsx",sheet="var" ,
+                          na = "nv")
+
+
+#selecting variables
+
+
+
+
+num<-varinfo$var[varinfo$type=="num"]
+
+Darafull_fu[num] <- lapply(Darafull_fu[num], as.numeric)
+
+catnum <- varinfo$var[varinfo$type=="num" | varinfo$type=="cat"]
+
+cat_pd<-varinfo$var[varinfo$linea==2 & varinfo$type=="cat" & is.na(varinfo$typr_surv)]
+
+num_pd<-varinfo$var[varinfo$linea==2 & varinfo$type=="num" & is.na(varinfo$typr_surv)]
+
+cat_es<-varinfo$var[varinfo$linea==1 & varinfo$type=="cat" & is.na(varinfo$typr_surv)]
+
+num_es<-varinfo$var[varinfo$linea==1 & varinfo$type=="num" & is.na(varinfo$typr_surv)]
+
+
+#Darafull_fu <- Darafull_fu %>% 
+#  filter(region_x !="Consenza")
+
+```
+
+## Summary Statistics of Numerical Variables
+```{r, fig.height=3, fig.width=5,echo=FALSE}
+#for num variables
+
+
+kable(t(summary(Darafull_fu[num_es])), caption = "Summary Statistics of Numeric Variables for patients at clinical Onset (essordio)") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+#tableOne_num_es <- CreateTableOne(vars = num_es, data = Darafull_fu, includeNA = TRUE, addOverall  = TRUE)
+
+#summary(tableOne_num_es)
+
+print('----------------------------------------------------------')
+
+
+kable(t(summary(Darafull_fu[num_pd])), caption = "Summary Statistics of Numeric Variables for patients after PD (DARAvd)") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+#tableOne_num_pd <- CreateTableOne(vars = num_pd, data = Darafull_fu, includeNA = TRUE, addOverall  = TRUE)
+
+#summary(tableOne_num_pd)
+
+```
+
+
+## Summary Statistics of Categorical Variables
+```{r, fig.height=3, fig.width=5,echo=FALSE}
+
+library(tableone)
+
+
+
+print("Frequencies of Categorical Variables for patients at clinical Onset (essordio)")
+
+#frequency_tables_es
+tableOne_es <- CreateTableOne(vars = cat_es, data = Darafull_fu, factorVars = cat_es, includeNA = TRUE, addOverall  = TRUE)
+
+print(tableOne_es, showAllLevels = TRUE, formatOptions = list(big.mark = ","))
+
+
+print("Frequencies of Categorical Variables for patients after pd (DARAvd)")
+
+#frequency_tables_pd
+
+
+tableOne_pd <- CreateTableOne(vars = cat_pd, data = Darafull_fu, factorVars = cat_pd, includeNA = TRUE, addOverall  = TRUE)
+
+print(tableOne_pd, showAllLevels = TRUE, formatOptions = list(big.mark = ","))
+
+p1<-as.data.frame(print(tableOne_pd, showAllLevels = TRUE, formatOptions = list(big.mark = ","))) %>% 
+  rownames_to_column(var = "var") %>%
+  mutate(k = if_else(substr(var, 1, 1) == "X", lag(var), var)) %>% 
+  mutate(k2 = if_else(substr(k, 1, 1) == "X", lag(k), k))
+
+
+write.csv(p1,file="fequeancy.csv")
+
+
+%>% 
+   mutate(var = if_else(row_number() == 1,var,
+                       if_else(
+                         var==lag(var) , "",var)))
+
+   
+```
+

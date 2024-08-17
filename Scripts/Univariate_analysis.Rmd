@@ -1,0 +1,669 @@
+---
+title: "Univariate analysis in PFS, TTP and OS"
+author: "SV"
+date: "2024-04-12"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+
+options(scipen = 999)
+library(data.table)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+#library(caret)
+library(gmodels)
+library(readxl)
+
+#Survival
+library(survminer)
+library(survivalROC)
+library(ggpubr)
+library(survival)
+
+#Roc curve
+library(cutpointr)
+library(ROCR)
+library(ROCit)
+library(pROC)
+library(timeROC)
+
+# requested 
+library(tidyr)
+library(broom)
+library(lattice)
+library(kableExtra)
+```
+
+```{r cars, echo=FALSE, results='hide'}
+#cinzia directory
+#setwd("C:/Users/emat/Desktop/streamming/data/")
+#biostat directory
+
+#Cinzia
+#setwd("C:/Users/vincenza.solli2/Alma Mater Studiorum Università di Bologna/MM group - Documenti/CARTELLE_PERSONALI/Escarraman_Jose/tesi/data//")
+#jose
+setwd("C:/Users/jose-/Alma Mater Studiorum Università di Bologna/MM group - Escarraman_Jose/tesi/data//")
+
+#tempo_esposozione_lena_linea1
+
+
+#final_data$ISS3 %>% table()
+final_data <- read_excel("./Darafull_fu.xlsx", sheet = "data", na = "nv")
+names2 <- read_excel("./Darafull_fu.xlsx",sheet="var", na = "nv")
+
+cat<-names2$var[names2$type=="cat"]
+#just for dara
+#cat<- names2$var[names2$type=="cat" & names2$linea=="2"]
+
+
+
+num<-names2$var[names2$type=="num"]
+cat<- names2$var[names2$type=="cat"]
+
+
+
+for (i in c(cat)) {
+  print(i)
+  final_data[[i]]<-as.factor(final_data[[i]])
+}
+
+# convert multiple colums to numeric
+for (i in c(num)) {
+  print(i)
+  final_data[[i]]<-as.numeric(final_data[[i]])
+}
+
+final_data2<-final_data
+
+#final_data2  <- final_data2 %>% 
+#  filter(region_x !="Consenza")
+
+```
+
+```{r, echo=FALSE, results='hide'}
+
+
+options(scipen = 999)
+
+final_data2$PFS_MONTHS_daravd_linea2 <- as.numeric(final_data2$PFS_MONTHS_daravd_linea2)
+final_data2$EVENT_PFS_DaraVd_linea2 <- as.character(final_data2$EVENT_PFS_DaraVd_linea2) %>%  as.numeric()
+
+
+
+final_data2$OS_MONTHS_PD <- as.numeric(final_data2$OS_MONTHS_PD)
+final_data2$OS_EVENT <- as.character(final_data2$OS_EVENT) %>%  as.numeric()
+
+
+final_data2$TTP_DARAVD_months <- as.numeric(final_data2$TTP_DARAVD_months)
+final_data2$EVENT_TTP_DaraVd_linea2 <- as.character(final_data2$EVENT_TTP_DaraVd_linea2) %>%  as.numeric()
+
+
+#create temp functions for COX univariate
+tmpfun_pfs <- function(x) as.formula(paste("PFS",x,sep="~"))
+tmpfun_ttp <- function(x) as.formula(paste("TTP",x,sep="~"))
+tmpfun_os <- function(x) as.formula(paste("OS",x,sep="~"))
+
+
+
+
+PFS <- Surv(final_data2$PFS_MONTHS_daravd_linea2, final_data2$EVENT_PFS_DaraVd_linea2)
+OS <- Surv(final_data2$OS_MONTHS_PD, final_data2$OS_EVENT)
+TTP <- Surv(final_data2$TTP_DARAVD_months, final_data2$EVENT_TTP_DaraVd_linea2)
+
+
+import<-final_data2
+
+```
+
+```{r, echo=FALSE, results='hide'}
+
+#________dataframe output PFS_____________
+output1<-output2<-NULL
+for (i in cat) {
+  if (sum(!is.na(final_data2[[i]]))>1) {
+    if (length(levels(final_data2[[i]]))>=2) {
+      print(i)
+      out2<-coxph(tmpfun_pfs(i), data = import) %>% tidy( exponentiate =T, conf.int = T) %>% cbind(surv="PFS", .)
+      
+      output1<-rbind(out2)
+      output2<-rbind( output1, output2)
+    }
+  }
+}
+output2
+
+output<-output2[,c(1,2,3,7,8,6)]
+names(output)<-c("PFS", "variable", "HR","Lower CI", "Upper CI", "p-value")
+cox_univariates_PFS<-as.data.frame(cbind(output$PFS, output$variable, format(round(output$HR,3),nsmall = 3),  
+                                     format(round(output$`Lower CI`,3),nsmall = 3),  format(round(output$`Upper CI`,3),nsmall = 3), format(round(output$`p-value`,4),nsmall = 3)))
+names(cox_univariates_PFS)<-c("Time", "variable", "HR","Lower CI", "Upper CI", "p-value")
+
+
+```
+
+```{r, echo=FALSE, results='hide'}
+#________dataframe output TTP_____________
+output1<-output2<-NULL
+for (i in cat) {
+  if (sum(!is.na(final_data2[[i]]))>1) {
+    if (length(levels(final_data2[[i]]))>=2) {
+      print(i)
+      out2<-coxph(tmpfun_ttp(i), data = import) %>% tidy( exponentiate =T, conf.int = T) %>% cbind(surv="TTP", .)
+
+      output1<-rbind(out2)
+      output2<-rbind( output1, output2)
+    }
+  }
+}
+output2
+
+output<-output2[,c(1,2,3,7,8,6)]
+names(output)<-c("TTP", "variable", "HR","Lower CI", "Upper CI", "p-value")
+cox_univariates_TTP<-as.data.frame(cbind(output$TTP, output$variable, format(round(output$HR,3),nsmall = 3),  
+                                     format(round(output$`Lower CI`,3),nsmall = 3),  format(round(output$`Upper CI`,3),nsmall = 3), format(round(output$`p-value`,4),nsmall = 3)))
+names(cox_univariates_TTP)<-c("Time", "variable", "HR","Lower CI", "Upper CI", "p-value")
+
+
+```
+
+```{r, echo=FALSE, results='hide'}
+#________dataframe output OS_____________
+output1<-output2<-NULL
+for (i in cat) {
+  if (sum(!is.na(final_data2[[i]]))>1) {
+    if (length(levels(final_data2[[i]]))>=2) {
+      print(i)
+      out2<-coxph(tmpfun_os(i), data = import) %>% tidy( exponentiate =T, conf.int = T) %>% cbind(surv="OS", .)
+      
+      output1<-rbind(out2)
+      output2<-rbind( output1, output2)
+    }
+  }
+}
+output2
+
+output<-output2[,c(1,2,3,7,8,6)]
+names(output)<-c("OS", "variable", "HR","Lower CI", "Upper CI", "p-value")
+cox_univariates_OS<-as.data.frame(cbind(output$OS, output$variable, format(round(output$HR,3),nsmall = 3),  
+                                     format(round(output$`Lower CI`,3),nsmall = 3),  format(round(output$`Upper CI`,3),nsmall = 3), format(round(output$`p-value`,4),nsmall = 3)))
+names(cox_univariates_OS)<-c("Time", "variable", "HR","Lower CI", "Upper CI", "p-value")
+
+
+```
+
+####### VARIABILI SIGNIFICATIVE IN PFS PER CREARE IL MODELLO MULTIVARIATO
+
+```{r, echo=FALSE}
+
+
+cox_univariates <- rbind(cox_univariates_PFS, cox_univariates_TTP, cox_univariates_OS)
+
+
+cat2<- names2$var[names2$type=="cat" & names2$linea=="2"]
+patterns <- paste(cat2, collapse = "|")
+
+
+cox_univariates_PFS<- cox_univariates_PFS %>% 
+filter(`p-value`<=0.05,
+       grepl(patterns, variable)) %>% 
+  as.data.frame()
+
+
+kable(cox_univariates_PFS, caption = "Significative variables at 2nd line (DARA) for PFS") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1:2, bold = TRUE)
+
+
+
+
+```
+
+####### VARIABILI SIGNIFICATIVE IN TTP PER CREARE IL MODELLO MULTIVARIATO
+
+```{r, echo=FALSE}
+
+cox_univariates_TTP<- cox_univariates_TTP %>% 
+filter(`p-value`<=0.05,
+       grepl(patterns, variable)) %>% 
+  as.data.frame()
+
+kable(cox_univariates_TTP, caption = "Significative variables at 2nd line (DARA) for TTP") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1:2, bold = TRUE)
+
+
+```
+
+####### VARIABILI SIGNIFICATIVE IN OS PER CREARE IL MODELLO MULTIVARIATO
+
+```{r, echo=FALSE}
+
+cox_univariates_OS<- cox_univariates_OS %>% 
+filter(`p-value`<=0.05,
+       grepl(patterns, variable)) %>% 
+  as.data.frame()
+
+kable(cox_univariates_OS, caption = "Significative variables at 2nd line (DARA) for OS") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1:2, bold = TRUE)
+
+```
+
+MEDIAN DARA PFS without strat
+
+```{r, echo=FALSE}
+
+PFSm <- survfit(PFS ~  1, data = final_data2)
+summary(PFSm)
+
+ggsurv <- ggsurvplot(
+           PFSm,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "PFS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+
+
+```
+
+MEDIAN DARA OS without strat
+
+```{r, echo=FALSE}
+
+OSm <- survfit(OS ~  1, data = final_data2)
+summary(OSm)
+
+ggsurv <- ggsurvplot(
+           OSm,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "OS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+
+
+
+
+```
+
+MEDIAN DARA TTP without strat
+
+```{r, echo=FALSE}
+
+TTPm <- survfit(TTP ~  1, data = final_data2)
+summary(TTPm)
+
+ggsurv <- ggsurvplot(
+           TTPm,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "TTP - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+```
+
+MEDIAN DARA PFS- HR_esordio and HR_DARA
+
+```{r, echo=FALSE}
+
+PFSm1 <- survfit(PFS ~  final_data2$HR_ESORDIO, data = final_data2)
+summary(PFSm1)
+
+
+ggsurv <- ggsurvplot(
+           PFSm1,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "PFS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+PFSm2 <- survfit(PFS ~  final_data2$HR_DARA, data = final_data2)
+
+summary(PFSm2)
+
+ggsurv <- ggsurvplot(
+           PFSm2,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "PFS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+
+
+```
+
+MEDIAN DARA OS- HR_esordio and HR_DARA
+
+```{r, echo=FALSE}
+
+OSm1 <- survfit(OS ~  final_data2$HR_ESORDIO, data = final_data2)
+summary(OSm1)
+
+
+ggsurv <- ggsurvplot(
+           OSm1,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "OS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+OSm2 <- survfit(OS ~  final_data2$HR_DARA, data = final_data2)
+
+summary(OSm2)
+
+ggsurv <- ggsurvplot(
+           OSm2,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "OS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+
+
+```
+
+MEDIAN DARA PFS- ISS and R-ISS
+
+```{r, echo=FALSE}
+
+PFSm1 <- survfit(PFS ~  final_data2$ISS_stadio_esordio, data = final_data2)
+summary(PFSm1)
+
+
+ggsurv <- ggsurvplot(
+           PFSm1,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "PFS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+PFSm2 <- survfit(PFS ~  final_data2$RISS_stadio_esordio, data = final_data2)
+
+summary(PFSm2)
+
+ggsurv <- ggsurvplot(
+           PFSm2,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "PFS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+           risk.table.y.text.col = T,# colour risk table text annotations.
+          #risk.table.height = 0.25, # the height of the risk table
+           risk.table.y.text = F,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+```
+
+MEDIAN DARA OS- ISS and R-ISS
+
+```{r, echo=FALSE}
+
+OSm1 <- survfit(OS ~  final_data2$ISS_stadio_esordio, data = final_data2)
+summary(OSm1)
+
+
+ggsurv <- ggsurvplot(
+           OSm1,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "OS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+OSm2 <- survfit(OS ~  final_data2$RISS_stadio_esordio, data = final_data2)
+
+summary(OSm2)
+
+ggsurv <- ggsurvplot(
+           OSm2,                     # survfit object with calculated statistics.
+           data = final_data2,             # data used to fit survival curves.
+           risk.table = TRUE,
+           surv.median.line = "hv",# show risk table.
+           pval = F,             # show p-value of log-rank test.
+           conf.int = F,         # show confidence intervals for 
+                                    # point estimates of survival curves.
+           palette = c("Okabe-Ito"),
+           xlim = c(0,60),         # present narrower X axis, but not affect
+                                    # survival estimates.
+           xlab = "OS - Time in months",   # customize X axis label.
+           break.time.by = 6,     # break X axis in time intervals by 500.
+           ggtheme = theme_light(), # customize plot and risk table with a theme.
+          risk.table.y.text.col = T,# colour risk table text annotations.
+          risk.table.height = 0.25, # the height of the risk table
+          risk.table.y.text = T,# show bars instead of names in text annotations
+                                    # in legend of risk table.
+          #ncensor.plot = TRUE,      # plot the number of censored subjects at time t
+          #ncensor.plot.height = 0.25,
+          #conf.int.style = "step",  # customize style of confidence intervals
+          #surv.median.line = "hv"  # add the median survival pointer.
+          #legend.labs = c("Male", "Female")    # change legend labels.
+        )
+
+ggsurv
+
+
+
+
+
+```
+
+ALL univariate (without filter)
+
+```{r, echo=FALSE}
+
+cox_univariates <- cox_univariates %>%
+  mutate(Significance = case_when(
+    `p-value` < 0.01 ~ "III",
+    `p-value` >= 0.01 & `p-value` < 0.05 ~ "II",
+    `p-value` >= 0.05 & `p-value` < 0.1 ~ "I",
+     `p-value` == "NA" ~ "",
+    TRUE ~ ""
+  )) %>%
+  arrange(Time, `p-value`) %>%
+  filter(variable!= "terapia_linea1Elo-RD" & variable!= "terapia_linea1RCD")
+
+kable(cox_univariates, caption = "Significative variables univariate cox model for OS, PFS and TTP ") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1:2, bold = TRUE)
+
+
+```

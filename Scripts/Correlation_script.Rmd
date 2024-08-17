@@ -1,0 +1,528 @@
+---
+title: "Dara VRD Correlational Analysis"
+author: "Unità statistica"
+date: "2024-03-27"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+
+options(scipen = 999)
+library(data.table)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(tableone)
+
+#library(caret)
+library(gmodels)
+library(readxl)
+
+# requested 
+library(tidyr)
+library(broom)
+library(lattice)
+library(kableExtra)
+```
+
+
+
+```{r cars, results='hide', echo=FALSE}
+
+#biostat directory
+setwd("C:/Users/jose-/Alma Mater Studiorum Università di Bologna/MM group - Escarraman_Jose/tesi/data/")
+
+
+#########carico il dataset finale
+final_data <- read_excel("./Darafull_fu.xlsx", sheet = "data", na = "nv")
+
+
+names2 <- read_excel("./Darafull_fu.xlsx", sheet = "var", na = "nv")
+
+cat<-names2$var[names2$type=="cat" & is.na(names2$typr_surv)]
+num<-names2$var[names2$type=="num" & is.na(names2$typr_surv)]
+
+
+for (i in c(cat)) {
+  print(i)
+  final_data[[i]]<-as.factor(final_data[[i]])
+}
+
+# convert multiple colums to numeric
+for (i in c(num)) {
+  print(i)
+  final_data[[i]]<-as.numeric(final_data[[i]])
+}
+
+
+
+#final_data <- final_data %>% 
+ # filter(region_x !="Consenza")
+
+```
+
+```{r, echo=FALSE, results='hide'}
+library(tableone)
+                                          
+                           
+#/////////////
+#numerical
+
+tableOne <- CreateTableOne(vars = num, strata = "bestresp_DaraVd_M_CR", data = final_data, test=T)
+
+
+tableOne1_1<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  filter(as.numeric(p)<=0.05) %>% 
+  select(-level) %>% arrange(p)
+
+tableOne1_1_1<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  filter(as.numeric(p)<=0.08) %>% 
+  select(-level) %>% arrange(p)
+
+tableOne1_1_2<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  #filter(as.numeric(p)<=0.08) %>% 
+  select(-level) %>% arrange(p) 
+##
+tableOne <- CreateTableOne(vars = num, strata = "bestresp_DaraVd_M_VGPR", data = final_data, test=T)
+
+tableOne1_2<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  filter(as.numeric(p)<=0.05) %>% 
+  select(-level) %>% arrange(p)
+
+tableOne1_2_1<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  filter(as.numeric(p)<=0.08) %>% 
+  select(-level)%>% arrange(p)
+
+tableOne1_2_2<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  #filter(as.numeric(p)<=0.08) %>% 
+  select(-level)%>% arrange(p)
+
+###
+tableOne <- CreateTableOne(vars = num, strata = "bestresp_DaraVd_m_SD", data = final_data, test=T)
+
+tableOne1_3<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  filter(as.numeric(p)<=0.05) %>% 
+  select(-level)%>% arrange(p)
+
+tableOne1_3_1<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  filter(as.numeric(p)<=0.08) %>% 
+  select(-level)%>% arrange(p)
+
+tableOne1_3_2<- as.data.frame(print(tableOne, nonnormal= num, test=T, showAllLevels=T, minMax = T)) %>%
+  #filter(as.numeric(p)<=0.08) %>% 
+  select(-level)%>% arrange(p)
+
+
+#print(tableOne, nonnormal= num, test=T, showAllLevels=T)
+#just showing pvalue lower than 0.05
+
+
+
+```
+
+```{r, echo=FALSE, results='hide'}
+library(tableone)
+#///////////////////
+#categorical
+tableOne <- CreateTableOne(vars = cat, strata = "bestresp_DaraVd_M_CR", data = final_data, factorVars = cat,  test=T)
+
+tableOne2_1<- as.data.frame(print(tableOne, exact= cat, test=T, showAllLevels=T))%>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X", lag(var), var),
+         p=if_else(var==lag(var),lag(p), p)) %>% 
+  filter(as.numeric(p)<=0.05) %>% 
+  arrange(p,var) %>% 
+  mutate(var = if_else(row_number() == 1,var,
+                       if_else(
+                         var==lag(var) , "",var)))
+
+
+
+tableOne2_1_1<- as.data.frame(print(tableOne, exact= cat, test=T, showAllLevels=T))%>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X", lag(var), var),
+         p=if_else(var==lag(var),lag(p), p)) %>% 
+  filter(as.numeric(p)<=0.08) %>% 
+    arrange(p,var)%>% 
+   mutate(var = if_else(row_number() == 1,var,
+                       if_else(
+                         var==lag(var) , "",var)))
+
+tableOne2_1_2<- print(tableOne, nonnormal= num, test=T, showAllLevels=T, formatOptions = list(big.mark = ","))
+
+#mutate(new_column = if_else(substr(row.names(), 1, 1) == "X", lag(row.names()), row.names()))
+
+##
+tableOne <- CreateTableOne(vars = cat, strata = "bestresp_DaraVd_M_VGPR", data = final_data, factorVars = cat,  test=T)
+
+tableOne2_2<-as.data.frame(print(tableOne, exact= cat, test=T, showAllLevels=T))%>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X", lag(var), var),
+         p=if_else(var==lag(var),lag(p), p)) %>% 
+  filter(as.numeric(p)<=0.05) %>% 
+    arrange(p,var)%>% 
+   mutate(var = if_else(row_number() == 1,var,
+                       if_else(
+                         var==lag(var) , "",var)))
+
+tableOne2_2_1<-  as.data.frame(print(tableOne, exact= cat, test=T, showAllLevels=T))%>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X", lag(var), var),
+         p=if_else(var==lag(var),lag(p), p)) %>% 
+  filter(as.numeric(p)<=0.08) %>% 
+    arrange(p,var)%>% 
+   mutate(var = if_else(row_number() == 1,var,
+                       if_else(
+                         var==lag(var) , "",var)))
+
+tableOne2_2_2<- print(tableOne, nonnormal= num, test=T, showAllLevels=T,formatOptions = list(big.mark = ",")) 
+
+##
+tableOne <- CreateTableOne(vars = cat, strata = "bestresp_DaraVd_m_SD", data = final_data, factorVars = cat,  test=T)
+
+tableOne2_3<- as.data.frame(print(tableOne, exact= cat, test=T, showAllLevels=T))%>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X", lag(var), var),
+         p=if_else(var==lag(var),lag(p), p)) %>% 
+  filter(as.numeric(p)<=0.05) %>% 
+    arrange(p,var)%>% 
+   mutate(var = if_else(row_number() == 1,var,
+                       if_else(
+                         var==lag(var) , "",var)))
+
+tableOne2_3_1<- as.data.frame(print(tableOne, exact= cat, test=T, showAllLevels=T))%>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X", lag(var), var),
+         p=if_else(var==lag(var),lag(p), p)) %>% 
+  filter(as.numeric(p)<=0.08) %>% 
+    arrange(p,var)%>% 
+   mutate(var = if_else(row_number() == 1,var,
+                       if_else(
+                         var==lag(var) , "",var)))
+tableOne2_3_2<- print(tableOne, nonnormal= num, test=T, showAllLevels=T, formatOptions = list(big.mark = ","))
+
+
+```
+
+## Stratified by: CR or better
+
+```{r, echo=FALSE, fig.height=3, fig.width=12}
+
+#results
+
+
+##bestresp_DaraVd_M_CR
+kable(tableOne1_1, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_M_CR = CR or better P<0.05") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+kable(tableOne1_1_1, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_M_CR = CR or better P<0.08") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableOne1_1_2, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_M_CR = CR or better without p value filter") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableOne2_1, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_M_CR = CR or better P<0.05") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+kable(tableOne2_1_1, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_M_CR = CR or better P<0.08") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableOne2_1_2, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_M_CR = CR or better without p value filter") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+print("-----------------------------------------------------------------------")
+```
+
+## Stratified by: VGPR or better
+
+```{r, echo=FALSE, fig.height=3, fig.width=12}
+
+
+#######bestresp_DaraVd_M_VGPR
+kable(tableOne1_2, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_M_VGPR = VGPR or better p<0.05 ") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+kable(tableOne1_2_1, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_M_VGPR = VGPR or better p<0.08") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+kable(tableOne1_2_2, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_M_VGPR = VGPR or better  without p value filter") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableOne2_2, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_M_VGPR = = VGPR or better p<0.05 ") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableOne2_2_1, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_M_VGPR = = VGPR or better p<0.08  ") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableOne2_2_2, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_M_VGPR = = VGPR or better without p value filter ") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+```
+
+## Stratified by: SD or worse 
+
+
+```{r, echo=FALSE, fig.height=3, fig.width=12}
+
+###############bestresp_DaraVd_m_SD
+
+print("-----------------------------------------------------------------------")
+
+kable(tableOne1_3, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_m_SD = SD or worse p<0.5") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+kable(tableOne1_3_1, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_m_SD = SD or worse p<0.8") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+kable(tableOne1_3_2, caption = "Correlational analysis Kruskal-Wallis test for groups: bestresp_DaraVd_m_SD = SD or worse without p value filter") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableOne2_3, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_m_SD = = SD or worse p<0.5") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+kable(tableOne2_3_1, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_m_SD = = SD or worse p<0.8") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableOne2_3_2, 
+  caption = "Correlational analysis Fisher exact test for groups: bestresp_DaraVd_m_SD = = SD or worse without p value filter") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+print("-----------------------------------------------------------------------")
+
+
+#tableOne %>% as.data.frame()
+#knitr::kable(tableOne)
+```
+
+```{r, echo=FALSE, results='hide'}
+
+###################################################all vs all#################
+
+pairs <- t(combn(c(num,cat), 2))
+
+pairsf<-as.data.frame(pairs)
+
+
+
+pairsf$v1c<- if_else(pairsf$V1 %in% num,"num","cat")
+pairsf$v2c<- if_else(pairsf$V2 %in% cat,"cat","num")
+
+pairsf$test<-if_else(pairsf$v1c==pairsf$v2c & pairsf$v2c=="num","numvsnum",
+                     if_else(pairsf$v1c==pairsf$v2c & pairsf$v2c=="cat","catvscat",
+                             if_else(pairsf$v1c!=pairsf$v2c & pairsf$v2c=="cat",
+                                     "numvscat","catvsnum")))
+
+nvsn_v1<-pairsf$V1[pairsf$test=="numvsnum"]
+nvsn_v2<-pairsf$V2[pairsf$test=="numvsnum"]
+
+cvsc_v1<-pairsf$V1[pairsf$test=="catvscat"]
+cvsc_v2<-pairsf$V2[pairsf$test=="catvscat"]
+
+nvsc_v1<-pairsf$V1[pairsf$test=="numvscat"]
+nvsc_v2<-pairsf$V2[pairsf$test=="numvscat"]
+
+
+finaldata3<- final_data[c(num,cat)]
+
+
+
+
+
+###### Perform Spearman Coeficient test###################
+#num vs num variables
+
+
+
+nvsn_v1<-pairsf$V1[pairsf$test=="numvsnum"]
+nvsn_v2<-pairsf$V2[pairsf$test=="numvsnum"]
+
+results_nvsn <- data.frame(variable1 = character(),
+                           variable2 = character(),
+                           p_value = numeric(),
+                           vs= character(),
+                           stringsAsFactors = FALSE)
+
+
+
+for (i in 1:length(nvsn_v1)) {
+
+  
+  if (sum(is.na(finaldata3[[nvsn_v1[i]]]))>40 | 
+      sum(is.na(finaldata3[[nvsn_v2[i]]]))>40) {
+    next
+  }
+  
+  spearman_result <- cor.test(finaldata3[[nvsn_v1[i]]],
+                              finaldata3[[nvsn_v2[i]]], method = "spearman")
+  
+  # Store the results in the dataframe
+  results_nvsn[i, "variable1"] <- nvsn_v1[i]
+  results_nvsn[i, "variable2"] <- nvsn_v2[i]
+  results_nvsn[i, "p_value"] <- spearman_result$p.value
+  results_nvsn[i, "vs"] <-  "Spearman"
+  
+  
+}
+
+
+
+
+
+###### Perform Fisher's exact test###################
+#cat vs cat variables
+
+cvsc_v1<-pairsf$V1[pairsf$test=="catvscat"]
+cvsc_v2<-pairsf$V2[pairsf$test=="catvscat"]
+
+results_cvsc <- data.frame(variable1 = character(),
+                         variable2 = character(),
+                         p_value = numeric(),
+                         vs= character(),
+                         stringsAsFactors = FALSE)
+
+# Loop through each pair of variables
+
+cvsc_v1[4510]
+for (i in 1:length(cvsc_v1)) {
+  # Perform Fisher's exact test
+  print(i)
+  if (length(unique(finaldata3[[cvsc_v1[i]]])) > 3 && length(unique(finaldata3[[cvsc_v2[i]]])) > 3 &&
+      max(table(finaldata3[[cvsc_v1[i]]])) > 3 && max(table(finaldata3[[cvsc_v2[i]]])) > 3
+      && sum(is.na(finaldata3[[cvsc_v1[i]]]))>10 && sum(is.na(finaldata3[[cvsc_v2[i]]]))>10 
+    ) 
+    {
+    
+    
+    print(i)
+  fisher_result <- fisher.test(table(finaldata3[[cvsc_v1[i]]], 
+                                     finaldata3[[cvsc_v2[i]]]),
+                               simulate.p.value=TRUE)
+  
+  # Store the results in the dataframe
+  results_cvsc[i, "variable1"] <- cvsc_v1[i]
+  results_cvsc[i, "variable2"] <- cvsc_v2[i]
+  results_cvsc[i, "p_value"] <- fisher_result$p.value
+  results_cvsc[i, "vs"] <-  "Fisher Test"
+  }
+  else{
+    next
+  }
+  
+  }
+final_data$`mg/mq_Bort_DaraVd`
+cvsc_v1[4284]
+cvsc_v2[4284]  
+
+
+
+
+######################Perform Kruskal-Wallis test################
+#num vs cat variables
+
+nvsc_v1<-pairsf$V1[pairsf$test=="numvscat"]
+nvsc_v2<-pairsf$V2[pairsf$test=="numvscat"]
+
+results_nvsc <- data.frame(variable1 = character(),
+                           variable2 = character(),
+                           p_value = numeric(),
+                           vs= character(),
+                           stringsAsFactors = FALSE)
+
+##
+
+for (i in 1:length(nvsc_v1)) {
+  
+
+group_list <- lapply(levels(finaldata3[[nvsc_v2[i]]]), function(group) {
+  finaldata3[[nvsc_v1[i]]][finaldata3[[nvsc_v2[i]]] == group]
+})
+
+if (
+any(sapply(group_list, function(group) {
+  all(is.na(group))
+}))==TRUE
+)
+  {
+  next
+}
+else {
+
+# Perform the Kruskal-Wallis test
+print(i)
+kruskal_result <- kruskal.test(group_list)
+
+
+results_nvsc[i, "variable1"] <- nvsc_v1[i]
+results_nvsc[i, "variable2"] <- nvsc_v2[i]
+results_nvsc[i, "p_value"] <- kruskal_result$p.value
+results_nvsc[i, "vs"] <-  "Kruskal-Wallis"
+
+}
+}
+
+#################################
+
+
+results_test<- rbind(results_cvsc,results_nvsc,results_nvsn) %>% 
+  filter(p_value<=0.05) %>% 
+  select(variable1,variable2, p_value,test=vs) %>% arrange(p_value)
+
+
+
+
+
+
+
+```
+
+## All vs all
+
+```{r, echo=FALSE}
+
+cvsc_v1[4510]
+cvsc_v2[4510]
+
+
+kable(results_test, caption = "Correlational analysis, all vs all") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1:2, bold = TRUE)
+
+
+```

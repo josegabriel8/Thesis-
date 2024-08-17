@@ -1,0 +1,109 @@
+---
+title: "Descriptive analysis  Toxicity"
+author: "José Gabriel Escarramán"
+date: "2024-04-02"
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+options(scipen = 999)
+library(data.table)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(tableone)
+
+#library(caret)
+library(gmodels)
+library(readxl)
+
+# requested 
+library(tidyr)
+library(broom)
+library(lattice)
+library(kableExtra)
+
+```
+
+
+```{r, echo=FALSE, results='hide'}
+
+toxi <- read_excel("C:/Users/jose-/Alma Mater Studiorum Università di Bologna/MM group - Escarraman_Jose/tesi/data/toxi.xlsx", 
+    sheet = "data", na = "nv")
+
+var <- read_excel("C:/Users/jose-/Alma Mater Studiorum Università di Bologna/MM group - Escarraman_Jose/tesi/data/toxi.xlsx", 
+    sheet = "var", na = "nv")
+
+
+vars<-var$var[var$type=="cat"]
+vars2<-var$var[var$type=="cat2"]
+vars3<-var$var[var$type=="cat3"]
+
+
+
+#grado<-var$var[var$type2==2]
+#grado <- c(grado, "ID3")
+
+
+#grado_clean <- na.omit(grado)
+
+  
+#toxi_subset <- toxi[, grado_clean]
+
+
+
+print("Summary Statistics of Categorical Variables for patients toxicity")
+
+for (i in c(vars)) {
+  print(i)
+  toxi[[i]]<-as.factor(toxi[[i]])
+}
+
+#frequency_tables_es
+tableOne <- CreateTableOne(vars = vars, data = toxi, factorVars = vars, includeNA = TRUE, addOverall  = TRUE)
+
+tableone_df<- as.data.frame(print(tableOne, showAllLevels = TRUE, formatOptions = list(big.mark = ","))) %>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X",
+                       "", var)) 
+
+
+tableOne2 <- CreateTableOne(vars = vars2, data = toxi, factorVars = vars2, includeNA = TRUE, addOverall  = TRUE)
+tableOne3 <- CreateTableOne(vars = vars3, data = toxi, factorVars = vars3, includeNA = TRUE, addOverall  = TRUE)
+
+
+tableone_df2<- as.data.frame(print(tableOne2, showAllLevels = TRUE, formatOptions = list(big.mark = ","))) %>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X",
+                       "", var)) 
+
+tableone_df3<- as.data.frame(print(tableOne3, showAllLevels = TRUE, formatOptions = list(big.mark = ","))) %>%
+  rownames_to_column(var = "var") %>%
+  mutate(var = if_else(substr(var, 1, 1) == "X",
+                       "", var)) 
+
+
+
+```
+
+## Toxicity frequency table
+```{r, echo=FALSE}
+
+kable(tableone_df, caption = "Summary Statistics of Categorical Variables for patient's toxicity") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+kable(tableone_df2, caption = "Categorical Variables for patient's toxicity (just toxicity variables)") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+kable(tableone_df3, caption = "Categorical Variables for patient's toxicity with grado>=2") %>%
+  kable_styling(font_size = 14) %>%
+  column_spec(1, bold = TRUE)
+
+
+
+```
